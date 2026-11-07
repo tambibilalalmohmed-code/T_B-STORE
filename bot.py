@@ -1,4 +1,7 @@
+import os
+import asyncio
 import logging
+from aiohttp import web
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
@@ -9,20 +12,16 @@ from telegram.ext import (
     filters
 )
 
-# إعداد السجلات
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 
-# توكن البوت الخاص بك
 TOKEN = "8953729199:AAGHjlB8FQiwb3KCiKWts9tqdTOCgAFQY5Y"
 
-# بيانات الدعم الفني
 SUPPORT_WHATSAPP = "https://wa.me/963947345832"
 SUPPORT_TELEGRAM = "https://t.me/T_B_STORRE"
 
-# قائمة الألعاب والفئات بالدولار
 GAMES_DATA = {
     "pubg": {
         "title": "🔫 ببجي موبايل (PUBG Mobile)",
@@ -49,7 +48,6 @@ GAMES_DATA = {
     }
 }
 
-# دالة القائمة الرئيسية
 def main_menu_keyboard():
     keyboard = [
         [InlineKeyboardButton("🔫 ببجي موبايل (PUBG)", callback_data="game_pubg")],
@@ -58,7 +56,6 @@ def main_menu_keyboard():
     ]
     return InlineKeyboardMarkup(keyboard)
 
-# أمر /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     welcome_text = (
@@ -71,7 +68,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif update.callback_query:
         await update.callback_query.message.edit_text(welcome_text, reply_markup=main_menu_keyboard(), parse_mode="Markdown")
 
-# التعامل مع الأزرار
 async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -129,7 +125,6 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ])
         await query.message.edit_text(support_text, reply_markup=support_buttons, parse_mode="Markdown")
 
-# استقبال الآيدي من المستخدم
 async def handle_user_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     game_key = context.user_data.get("selected_game")
 
@@ -153,16 +148,37 @@ async def handle_user_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await start(update, context)
 
-# نقطة الانطلاق الرئيسية
-def main():
-    app = ApplicationBuilder().token(TOKEN).build()
+# صفحة ويب وهمية لإبقاء سيرفر Render شغالاً 24 ساعة
+async def handle_ping(request):
+    return web.Response(text="Bot is running!")
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(handle_buttons))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_user_text))
+async def start_web_server():
+    app = web.Application()
+    app.router.add_get('/', handle_ping)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    port = int(os.environ.get("PORT", 8080))
+    site = web.TCPSite(runner, '0.0.0.0', port)
+    await site.start()
+    print(f"🌐 تم تشغيل خادم الويب على المنفذ {port}")
+
+async def main():
+    tg_app = ApplicationBuilder().token(TOKEN).build()
+
+    tg_app.add_handler(CommandHandler("start", start))
+    tg_app.add_handler(CallbackQueryHandler(handle_buttons))
+    tg_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_user_text))
+
+    await start_web_server()
 
     print("🤖 بوت T_B STORE يعمل الآن بنجاح...")
-    app.run_polling()
+    await tg_app.initialize()
+    await tg_app.start()
+    await tg_app.updater.start_polling()
+
+    # إبقاء التطبيق شغالاً للأبد
+    while True:
+        await asyncio.sleep(3600)
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
