@@ -1,256 +1,165 @@
 import logging
-import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
-    Application,
+    ApplicationBuilder,
     CommandHandler,
     CallbackQueryHandler,
     MessageHandler,
-    ConversationHandler,
-    filters,
     ContextTypes,
+    filters
 )
 
-# بيانات البوت والمشرف
-BOT_TOKEN = "8953729199:AAGHjlB8FQiwb3KCiKWts9tqdT0CgAFQY5Y"
-ADMIN_ID = 8932516552
-SHAMCASH_ACCOUNT = "0947345832"
-
+# إعداد السجلات
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
 )
 
-SELECTING_PACKAGE, ENTERING_UID, SENDING_RECEIPT = range(3)
+# توكن البوت الخاص بك
+TOKEN = "8953729199:AAGHjlB8FQiwb3KCiKWts9tqdTOCgAFQY5Y"
 
-# قائمة المنتجات والباقات المتاحة
-PRODUCTS = {
-    "codm": {
-        "name": "كول أوف ديوتي موبايل",
-        "packages": {
-            "cp_80": {"name": "80 CP", "price": "16,000 ل.س", "api_code": "COD_80"},
-            "cp_420": {"name": "420 CP", "price": "70,000 ل.س", "api_code": "COD_420"},
-            "cp_880": {"name": "880 CP", "price": "138,000 ل.س", "api_code": "COD_880"}
-        }
+# بيانات الدعم الفني
+SUPPORT_WHATSAPP = "https://wa.me/963947345832"
+SUPPORT_TELEGRAM = "https://t.me/T_B_STORRE"
+
+# قائمة الألعاب والفئات بالدولار
+GAMES_DATA = {
+    "pubg": {
+        "title": "🔫 ببجي موبايل (PUBG Mobile)",
+        "packages": [
+            ("60 UC", "$0.99"),
+            ("325 UC", "$4.99"),
+            ("660 UC", "$9.49"),
+            ("1800 UC", "$23.99"),
+            ("3850 UC", "$48.50"),
+            ("8100 UC", "$96.99")
+        ]
     },
     "freefire": {
-        "name": "فري فاير",
-        "packages": {
-            "ff_110": {"name": "110 جوهرة", "price": "15,000 ل.س", "api_code": "FF_110"},
-            "ff_572": {"name": "572 جوهرة", "price": "70,000 ل.س", "api_code": "FF_572"},
-            "ff_pass": {"name": "عضوية أسبوعية", "price": "32,000 ل.س", "api_code": "FF_WEEK"}
-        }
-    },
-    "pubg": {
-        "name": "ببجي موبايل",
-        "packages": {
-            "pubg_60": {"name": "60 UC", "price": "14,000 ل.س", "api_code": "PUBG_60"},
-            "pubg_325": {"name": "325 UC", "price": "67,000 ل.س", "api_code": "PUBG_325"}
-        }
+        "title": "🔥 فري فاير (Free Fire)",
+        "packages": [
+            ("100 + 10 جوهرة", "$0.99"),
+            ("210 + 21 جوهرة", "$1.99"),
+            ("530 + 53 جوهرة", "$4.85"),
+            ("1080 + 108 جوهرة", "$9.50"),
+            ("2200 + 220 جوهرة", "$18.99"),
+            ("عضوية أسبوعية (Weekly)", "$1.99"),
+            ("عضوية شهرية (Monthly)", "$9.99")
+        ]
     }
 }
 
-pending_orders = {}
-
-def fulfill_order_via_api(game_code, player_uid, api_code):
-    """دالة الربط مع مزود الـ API الخارجي"""
-    return True
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# دالة القائمة الرئيسية
+def main_menu_keyboard():
     keyboard = [
-        [InlineKeyboardButton("🔫 كول أوف ديوتي", callback_data="prod_codm")],
-        [InlineKeyboardButton("🔥 فري فاير", callback_data="prod_freefire")],
-        [InlineKeyboardButton("🪖 ببجي موبايل", callback_data="prod_pubg")],
-        [InlineKeyboardButton("💬 الدعم الفني", url="https://wa.me/963947345832")]
+        [InlineKeyboardButton("🔫 ببجي موبايل (PUBG)", callback_data="game_pubg")],
+        [InlineKeyboardButton("🔥 فري فاير (Free Fire)", callback_data="game_freefire")],
+        [InlineKeyboardButton("💬 الدعم الفني والخدمات الأخرى", callback_data="support_info")]
     ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    return InlineKeyboardMarkup(keyboard)
 
+# أمر /start
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data.clear()
     welcome_text = (
-        "👋 *أهلاً بك في متجر T_B STORE الرسمي*\n\n"
-        "⚡ خدمة شحن تلقائي وفوري بالـ ID عبر شام كاش.\n"
-        "اختر اللعبة أو الخدمة التي تريد شحنها للبدء:"
+        "👋 **أهلاً بك في متجر T_B STORE الرسمي 🎮⚡**\n\n"
+        "متجرك الأول لشحن الألعاب والخدمات الرقمية بأفضل الأسعار وأسرع تنفيذ.\n\n"
+        "🔹 اختر اللعبة التي تريد شحنها من القائمة بالأسفل:"
     )
     if update.message:
-        await update.message.reply_text(welcome_text, reply_markup=reply_markup, parse_mode="Markdown")
-    else:
-        await update.callback_query.message.edit_text(welcome_text, reply_markup=reply_markup, parse_mode="Markdown")
-    return SELECTING_PACKAGE
+        await update.message.reply_text(welcome_text, reply_markup=main_menu_keyboard(), parse_mode="Markdown")
+    elif update.callback_query:
+        await update.callback_query.message.edit_text(welcome_text, reply_markup=main_menu_keyboard(), parse_mode="Markdown")
 
-async def select_product(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# التعامل مع الأزرار
+async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-
-    prod_id = query.data.replace("prod_", "")
-    context.user_data["current_prod"] = prod_id
-    prod = PRODUCTS[prod_id]
-
-    keyboard = []
-    for pkg_id, pkg_info in prod["packages"].items():
-        keyboard.append([InlineKeyboardButton(f"{pkg_info['name']} - {pkg_info['price']}", callback_data=f"pkg_{pkg_id}")])
-    keyboard.append([InlineKeyboardButton("🔙 رجوع", callback_data="back_main")])
-
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await query.message.edit_text(f"🎮 *{prod['name']}*\n\nاختر الباقة المطلوبة:", reply_markup=reply_markup, parse_mode="Markdown")
-    return SELECTING_PACKAGE
-
-async def select_package(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-
-    pkg_id = query.data.replace("pkg_", "")
-    context.user_data["current_pkg"] = pkg_id
-
-    await query.message.edit_text(
-        "🆔 *أرسل الآن معرف حسابك (Player ID / UID):*\n\n"
-        "⚠️ يرجى التأكد من كتابة الرقم بشكل صحيح لتجنب أي خطأ في الشحن.",
-        parse_mode="Markdown"
-    )
-    return ENTERING_UID
-
-async def receive_uid(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    uid = update.message.text.strip()
-    context.user_data["player_uid"] = uid
-
-    prod = PRODUCTS[context.user_data["current_prod"]]
-    pkg = prod["packages"][context.user_data["current_pkg"]]
-
-    payment_instructions = (
-        f"✅ *تم حفظ البيانات:* \n"
-        f"• الخدمة: {prod['name']}\n"
-        f"• الباقة: {pkg['name']}\n"
-        f"• الآيدي: `{uid}`\n"
-        f"• المبلغ المطلوب: *{pkg['price']}*\n\n"
-        f"💳 *طريقة الدفع:*\n"
-        f"قم بتحويل المبلغ إلى حساب شام كاش:\n"
-        f"`{SHAMCASH_ACCOUNT}` (اضغط على الرقم لنسخه)\n\n"
-        f"📸 *أرسل الآن صورة إشعار التحويل لتأكيد الشحن فوراً.*"
-    )
-
-    await update.message.reply_text(payment_instructions, parse_mode="Markdown")
-    return SENDING_RECEIPT
-
-async def receive_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message.photo:
-        await update.message.reply_text("⚠️ يرجى إرسال صورة إشعار التحويل من تطبيق شام كاش.")
-        return SENDING_RECEIPT
-
-    photo_file_id = update.message.photo[-1].file_id
-    user = update.message.from_user
-    order_id = f"TB{update.message.message_id}"
-
-    prod = PRODUCTS[context.user_data["current_prod"]]
-    pkg = prod["packages"][context.user_data["current_pkg"]]
-    uid = context.user_data["player_uid"]
-
-    pending_orders[order_id] = {
-        "chat_id": update.message.chat_id,
-        "prod_id": context.user_data["current_prod"],
-        "pkg_id": context.user_data["current_pkg"],
-        "api_code": pkg["api_code"],
-        "uid": uid,
-        "name": prod["name"],
-        "pkg_name": pkg["name"]
-    }
-
-    await update.message.reply_text(
-        "⏳ *تم استلام طلبك وإشعار الدفع بنجاح!*\n"
-        "جاري التحقق وتنفيذ الشحن تلقائياً، ستصلك رسالة فور اكتمال العملية.",
-        parse_mode="Markdown"
-    )
-
-    admin_keyboard = [
-        [
-            InlineKeyboardButton("🚀 تنفيذ فوري (API)", callback_data=f"approve_{order_id}"),
-            InlineKeyboardButton("❌ رفض", callback_data=f"reject_{order_id}")
-        ]
-    ]
-    admin_markup = InlineKeyboardMarkup(admin_keyboard)
-
-    caption = (
-        f"🔔 *طلب شحن جديد وارد:* `{order_id}`\n\n"
-        f"👤 المستخدم: @{user.username or 'بدون معرف'} ({user.first_name})\n"
-        f"🎮 الخدمة: {prod['name']}\n"
-        f"📦 الباقة: {pkg['name']} ({pkg['price']})\n"
-        f"🆔 الآيدي (UID): `{uid}`"
-    )
-
-    await context.bot.send_photo(
-        chat_id=ADMIN_ID,
-        photo=photo_file_id,
-        caption=caption,
-        reply_markup=admin_markup,
-        parse_mode="Markdown"
-    )
-
-    return ConversationHandler.END
-
-async def admin_decision(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-
     data = query.data
-    action, order_id = data.split("_", 1)
-    order = pending_orders.get(order_id)
 
-    if not order:
-        await query.edit_message_caption(caption="⚠️ هذا الطلب تم اتخاذ إجراء عليه مسبقاً أو انتهت جلسته.")
-        return
+    if data == "main_menu":
+        await start(update, context)
 
-    if action == "approve":
-        success = fulfill_order_via_api(order["prod_id"], order["uid"], order["api_code"])
-        
-        if success:
-            await query.edit_message_caption(caption=query.message.caption + "\n\n✅ *تم التنفيذ والشحن عبر الـ API بنجاح!*", parse_mode="Markdown")
-            await context.bot.send_message(
-                chat_id=order["chat_id"],
-                text=(
-                    f"🎉 *مبروك! تم شحن حسابك بنجاح!*\n\n"
-                    f"🎮 الخدمة: {order['name']}\n"
-                    f"📦 الباقة: {order['pkg_name']}\n"
-                    f"🆔 الآيدي: `{order['uid']}`\n\n"
-                    f"شكراً لتعاملك مع *T_B STORE* ❤️"
-                ),
-                parse_mode="Markdown"
-            )
-        else:
-            await query.edit_message_caption(caption=query.message.caption + "\n\n⚠️ *فشل الاتصال بمزود الـ API.*", parse_mode="Markdown")
+    elif data.startswith("game_"):
+        game_key = data.replace("game_", "")
+        context.user_data["selected_game"] = game_key
+        game_info = GAMES_DATA[game_key]
 
-    elif action == "reject":
-        await query.edit_message_caption(caption=query.message.caption + "\n\n❌ *تم رفض الطلب.*", parse_mode="Markdown")
-        await context.bot.send_message(
-            chat_id=order["chat_id"],
-            text="❌ *عذراً، تم إلغاء طلبك.*\nالسبب: لم يتم العثور على الإشعار في شام كاش أو بيانات الدفع غير صحيحة.",
-            parse_mode="Markdown"
+        await query.message.edit_text(
+            f"اخترت: **{game_info['title']}**\n\n"
+            "يرجى إرسال **الآيدي (Player ID)** الخاص بحسابك لإكمال الطلب:",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 رجوع للقائمة", callback_data="main_menu")]])
         )
 
-    pending_orders.pop(order_id, None)
+    elif data.startswith("pkg_"):
+        pkg_index = int(data.replace("pkg_", ""))
+        game_key = context.user_data.get("selected_game")
+        player_id = context.user_data.get("player_id", "غير محدد")
+        game_info = GAMES_DATA[game_key]
+        pkg_name, pkg_price = game_info["packages"][pkg_index]
 
-async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("تم إلغاء العملية.")
-    return ConversationHandler.END
+        order_summary = (
+            "🧾 **تفاصيل الطلب:**\n"
+            f"🔹 الخدمة: {game_info['title']}\n"
+            f"🔹 الباقة: {pkg_name}\n"
+            f"💵 السعر: {pkg_price}\n"
+            f"🆔 الآيدي: `{player_id}`\n\n"
+            "لتأكيد الطلب والدفع، يرجى التواصل مع الدعم الفني فوراً عبر الأزرار أدناه:"
+        )
 
+        support_markup = InlineKeyboardMarkup([
+            [InlineKeyboardButton("💬 واتساب (WhatsApp)", url=SUPPORT_WHATSAPP)],
+            [InlineKeyboardButton("✈️ تيليجرام الدعم", url=SUPPORT_TELEGRAM)],
+            [InlineKeyboardButton("🔙 اختيار باقة أخرى", callback_data=f"game_{game_key}")],
+            [InlineKeyboardButton("🏠 القائمة الرئيسية", callback_data="main_menu")]
+        ])
+
+        await query.message.edit_text(order_summary, reply_markup=support_markup, parse_mode="Markdown")
+
+    elif data == "support_info":
+        support_text = (
+            "🛠️ **قسم الدعم الفني والخدمات الأخرى**\n\n"
+            "لشحن التطبيقات، الاشتراكات الرقمية، أو الاستفسار وتأكيد الدفع، تواصل معنا مباشرة:"
+        )
+        support_buttons = InlineKeyboardMarkup([
+            [InlineKeyboardButton("💬 واتساب (WhatsApp)", url=SUPPORT_WHATSAPP)],
+            [InlineKeyboardButton("✈️ تيليجرام الدعم", url=SUPPORT_TELEGRAM)],
+            [InlineKeyboardButton("🔙 رجوع للقائمة الرئيسية", callback_data="main_menu")]
+        ])
+        await query.message.edit_text(support_text, reply_markup=support_buttons, parse_mode="Markdown")
+
+# استقبال الآيدي من المستخدم
+async def handle_user_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    game_key = context.user_data.get("selected_game")
+
+    if game_key and game_key in GAMES_DATA:
+        player_id = update.message.text.strip()
+        context.user_data["player_id"] = player_id
+        game_info = GAMES_DATA[game_key]
+
+        buttons = []
+        for idx, (pkg_name, price) in enumerate(game_info["packages"]):
+            buttons.append([InlineKeyboardButton(f"{pkg_name} — {price}", callback_data=f"pkg_{idx}")])
+
+        buttons.append([InlineKeyboardButton("🔙 رجوع للقائمة الرئيسية", callback_data="main_menu")])
+
+        await update.message.reply_text(
+            f"✅ تم حفظ الآيدي: `{player_id}`\n\n"
+            f"اختر الفئة المطلوبة لـ **{game_info['title']}**:",
+            reply_markup=InlineKeyboardMarkup(buttons),
+            parse_mode="Markdown"
+        )
+    else:
+        await start(update, context)
+
+# نقطة الانطلاق الرئيسية
 def main():
-    app = Application.builder().token(BOT_TOKEN).build()
+    app = ApplicationBuilder().token(TOKEN).build()
 
-    conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("start", start)],
-        states={
-            SELECTING_PACKAGE: [
-                CallbackQueryHandler(select_product, pattern="^prod_"),
-                CallbackQueryHandler(select_package, pattern="^pkg_"),
-                CallbackQueryHandler(start, pattern="^back_main$"),
-            ],
-            ENTERING_UID: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, receive_uid)
-            ],
-            SENDING_RECEIPT: [
-                MessageHandler(filters.PHOTO, receive_receipt)
-            ],
-        },
-        fallbacks=[CommandHandler("cancel", cancel)],
-    )
-
-    app.add_handler(conv_handler)
-    app.add_handler(CallbackQueryHandler(admin_decision, pattern="^(approve|reject)_"))
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CallbackQueryHandler(handle_buttons))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_user_text))
 
     print("🤖 بوت T_B STORE يعمل الآن بنجاح...")
     app.run_polling()
