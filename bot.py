@@ -59,14 +59,14 @@ def main_menu_keyboard():
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     welcome_text = (
-        "👋 **أهلاً بك في متجر T_B STORE الرسمي 🎮⚡**\n\n"
+        "👋 أهلاً بك في متجر T_B STORE الرسمي 🎮⚡\n\n"
         "متجرك الأول لشحن الألعاب والخدمات الرقمية بأفضل الأسعار وأسرع تنفيذ.\n\n"
         "🔹 اختر اللعبة التي تريد شحنها من القائمة بالأسفل:"
     )
     if update.message:
-        await update.message.reply_text(welcome_text, reply_markup=main_menu_keyboard(), parse_mode="Markdown")
+        await update.message.reply_text(welcome_text, reply_markup=main_menu_keyboard())
     elif update.callback_query:
-        await update.callback_query.message.edit_text(welcome_text, reply_markup=main_menu_keyboard(), parse_mode="Markdown")
+        await update.callback_query.message.edit_text(welcome_text, reply_markup=main_menu_keyboard())
 
 async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -82,9 +82,8 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
         game_info = GAMES_DATA[game_key]
 
         await query.message.edit_text(
-            f"اخترت: **{game_info['title']}**\n\n"
-            "يرجى إرسال **الآيدي (Player ID)** الخاص بحسابك لإكمال الطلب:",
-            parse_mode="Markdown",
+            f"اخترت: {game_info['title']}\n\n"
+            "يرجى إرسال الآيدي (Player ID) الخاص بحسابك لإكمال الطلب:",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 رجوع للقائمة", callback_data="main_menu")]])
         )
 
@@ -96,11 +95,11 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
         pkg_name, pkg_price = game_info["packages"][pkg_index]
 
         order_summary = (
-            "🧾 **تفاصيل الطلب:**\n"
+            "🧾 تفاصيل الطلب:\n"
             f"🔹 الخدمة: {game_info['title']}\n"
             f"🔹 الباقة: {pkg_name}\n"
             f"💵 السعر: {pkg_price}\n"
-            f"🆔 الآيدي: `{player_id}`\n\n"
+            f"🆔 الآيدي: {player_id}\n\n"
             "لتأكيد الطلب والدفع، يرجى التواصل مع الدعم الفني فوراً عبر الأزرار أدناه:"
         )
 
@@ -111,11 +110,11 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🏠 القائمة الرئيسية", callback_data="main_menu")]
         ])
 
-        await query.message.edit_text(order_summary, reply_markup=support_markup, parse_mode="Markdown")
+        await query.message.edit_text(order_summary, reply_markup=support_markup)
 
     elif data == "support_info":
         support_text = (
-            "🛠️ **قسم الدعم الفني والخدمات الأخرى**\n\n"
+            "🛠️ قسم الدعم الفني والخدمات الأخرى\n\n"
             "لشحن التطبيقات، الاشتراكات الرقمية، أو الاستفسار وتأكيد الدفع، تواصل معنا مباشرة:"
         )
         support_buttons = InlineKeyboardMarkup([
@@ -123,7 +122,7 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("✈️ تيليجرام الدعم", url=SUPPORT_TELEGRAM)],
             [InlineKeyboardButton("🔙 رجوع للقائمة الرئيسية", callback_data="main_menu")]
         ])
-        await query.message.edit_text(support_text, reply_markup=support_buttons, parse_mode="Markdown")
+        await query.message.edit_text(support_text, reply_markup=support_buttons)
 
 async def handle_user_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     game_key = context.user_data.get("selected_game")
@@ -140,10 +139,9 @@ async def handle_user_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         buttons.append([InlineKeyboardButton("🔙 رجوع للقائمة الرئيسية", callback_data="main_menu")])
 
         await update.message.reply_text(
-            f"✅ تم حفظ الآيدي: `{player_id}`\n\n"
-            f"اختر الفئة المطلوبة لـ **{game_info['title']}**:",
-            reply_markup=InlineKeyboardMarkup(buttons),
-            parse_mode="Markdown"
+            f"✅ تم حفظ الآيدي: {player_id}\n\n"
+            f"اختر الفئة المطلوبة لـ {game_info['title']}:",
+            reply_markup=InlineKeyboardMarkup(buttons)
         )
     else:
         await start(update, context)
@@ -179,3 +177,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+    
