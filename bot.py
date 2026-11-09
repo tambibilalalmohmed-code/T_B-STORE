@@ -19,10 +19,10 @@ logging.basicConfig(
 
 TOKEN = "8953729199:AAGMwhzt5XQS-y6tko8EUoO71l8nZR84PHE"
 
-# حسابات الدعم والإدارة
+# بيانات الأدمن الرسمية
+ADMIN_ID = 8932516552
 ADMIN_USERNAME = "Nob_404"
-ADMIN_CHAT_ID = None  # يتعرف عليه تلقائياً عند أول تواصل
-ALL_USERS = set()      # لحفظ مستخدمي البوت للإحصائيات والإذاعة
+ALL_USERS = set()
 
 SUPPORT_WHATSAPP = "https://wa.me/963947345832"
 SUPPORT_TELEGRAM = f"https://t.me/{ADMIN_USERNAME}"
@@ -195,11 +195,8 @@ def build_chat_keyboard(page_index: int):
     return InlineKeyboardMarkup(keyboard)
 
 def register_user(user):
-    global ADMIN_CHAT_ID
     if user:
         ALL_USERS.add(user.id)
-        if user.username and user.username.lower() == ADMIN_USERNAME.lower():
-            ADMIN_CHAT_ID = user.id
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -216,38 +213,38 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif update.callback_query:
         await update.callback_query.message.edit_text(welcome_text, reply_markup=main_menu_keyboard())
 
-# أوامر الأدمن
+# أمر لوحة التحكم
 async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     register_user(user)
-    if user.username and user.username.lower() == ADMIN_USERNAME.lower():
+    if user and user.id == ADMIN_ID:
         admin_text = (
-            "👑 **أهلاً بك في لوحة تحكم الإدارة (T_B STORE)**\n\n"
+            "👑 أهلاً بك في لوحة تحكم الإدارة (T_B STORE)\n\n"
             f"👥 عدد المستخدمين الإجمالي: {len(ALL_USERS)}\n"
-            f"🆔 معرف الأدمن: `{user.id}`\n\n"
-            "📢 **للإذاعة لكل المستخدمين:**\n"
-            "اكتب الأمر مع الرسالة مباشرة:\n"
-            "`/broadcast مرحباً بكم، يتوفر عرض جديد...`"
+            f"🆔 معرف الأدمن: {user.id}\n\n"
+            "📢 للإذاعة لجميع المستخدمين، اكتب:\n"
+            "/broadcast نص الرسالة هنا"
         )
-        await update.message.reply_text(admin_text, parse_mode="Markdown")
+        await update.message.reply_text(admin_text)
     else:
         await update.message.reply_text("عذراً، هذا الأمر مخصص لإدارة المتجر فقط.")
 
+# أمر الإذاعة العامة
 async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     register_user(user)
-    if not (user.username and user.username.lower() == ADMIN_USERNAME.lower()):
+    if not (user and user.id == ADMIN_ID):
         return
 
     msg_to_send = " ".join(context.args)
     if not msg_to_send:
-        await update.message.reply_text("❌ يرجى كتابة نص الرسالة بعد الأمر.\nمثال:\n`/broadcast عروض جديدة متوفرة الآن!`", parse_mode="Markdown")
+        await update.message.reply_text("❌ يرجى كتابة نص الرسالة بعد الأمر.\nمثال:\n/broadcast عروض جديدة متوفرة الآن!")
         return
 
     success = 0
     for uid in ALL_USERS:
         try:
-            await context.bot.send_message(chat_id=uid, text=f"📢 **تنبيه من إدارة المتجر:**\n\n{msg_to_send}", parse_mode="Markdown")
+            await context.bot.send_message(chat_id=uid, text=f"📢 تنبيه من إدارة المتجر:\n\n{msg_to_send}")
             success += 1
             await asyncio.sleep(0.05)
         except Exception:
@@ -332,20 +329,19 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ])
         await query.message.edit_text(order_summary, reply_markup=support_markup)
 
-        # إشعار مباشر للأدمن بالطلب
-        if ADMIN_CHAT_ID:
-            try:
-                alert_text = (
-                    "🔔 **طلب شحن جديد!**\n\n"
-                    f"👤 الزبون: {user.first_name} (@{user.username if user.username else 'لا يوجد'})\n"
-                    f"🆔 آيدي الزبون: `{user.id}`\n"
-                    f"🎮 اللعبة: {game_info['title']}\n"
-                    f"📦 الباقة: {pkg_name} ({pkg_price})\n"
-                    f"🎯 آيدي اللاعب: `{player_id}`"
-                )
-                await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=alert_text, parse_mode="Markdown")
-            except Exception:
-                pass
+        # إرسال إشعار فوري بحساب الأدمن
+        try:
+            alert_text = (
+                "🔔 طلب شحن جديد!\n\n"
+                f"👤 الزبون: {user.first_name} (@{user.username if user.username else 'لا يوجد'})\n"
+                f"🆔 آيدي الزبون: {user.id}\n"
+                f"🎮 الخدمة: {game_info['title']}\n"
+                f"📦 الباقة: {pkg_name} ({pkg_price})\n"
+                f"🎯 آيدي اللاعب: {player_id}"
+            )
+            await context.bot.send_message(chat_id=ADMIN_ID, text=alert_text)
+        except Exception:
+            pass
 
     elif data == "nav_deposit":
         deposit_text = (
@@ -450,7 +446,7 @@ async def main():
     async with tg_app:
         await tg_app.start()
         await tg_app.updater.start_polling()
-        print("🤖 بوت T_B STORE يعمل الآن بنجاح مع لوحة الإدارة...")
+        print("🤖 بوت T_B STORE يعمل الآن بنجاح...")
         while True:
             await asyncio.sleep(3600)
 
