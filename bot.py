@@ -52,15 +52,15 @@ GAMES_DATA = {
     "ff_memberships": {
         "title": "عضويات فري فاير",
         "packages": [
-            ("عضوية أسبوعية (Weekly)", "$1.99"),
-            ("عضوية شهرية (Monthly)", "$9.99")
+            ("عضوية أسبوعية (Weekly)", "$2.10"),
+            ("عضوية شهرية (Monthly)", "$10.5")
         ]
     },
     "pubg_memberships": {
         "title": "عضويات ببجي",
         "packages": [
             ("برايم عادي (Prime)", "$0.99"),
-            ("برايم بلس (Prime Plus)", "$8.99")
+            ("برايم بلس (Prime Plus)", "$9.99")
         ]
     }
 }
