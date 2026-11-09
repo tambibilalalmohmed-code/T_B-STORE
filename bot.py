@@ -19,8 +19,13 @@ logging.basicConfig(
 
 TOKEN = "8953729199:AAGMwhzt5XQS-y6tko8EUoO71l8nZR84PHE"
 
+# حسابات الدعم والإدارة
+ADMIN_USERNAME = "Nob_404"
+ADMIN_CHAT_ID = None  # يتعرف عليه تلقائياً عند أول تواصل
+ALL_USERS = set()      # لحفظ مستخدمي البوت للإحصائيات والإذاعة
+
 SUPPORT_WHATSAPP = "https://wa.me/963947345832"
-SUPPORT_TELEGRAM = "https://t.me/Nob_404"
+SUPPORT_TELEGRAM = f"https://t.me/{ADMIN_USERNAME}"
 
 GAMES_DATA = {
     "pubg_global": {
@@ -169,7 +174,6 @@ def games_menu_keyboard():
 def build_chat_keyboard(page_index: int):
     items = CHAT_PAGES[page_index]
     keyboard = []
-    
     for i in range(0, len(items), 2):
         if i + 1 < len(items):
             keyboard.append([
@@ -184,17 +188,25 @@ def build_chat_keyboard(page_index: int):
         nav_buttons.append(InlineKeyboardButton("◀️ السابق", callback_data=f"chat_page_{page_index - 1}"))
     if page_index < len(CHAT_PAGES) - 1:
         nav_buttons.append(InlineKeyboardButton("التالي ▶️", callback_data=f"chat_page_{page_index + 1}"))
-    
     if nav_buttons:
         keyboard.append(nav_buttons)
 
     keyboard.append([InlineKeyboardButton("🔙 رجوع للأقسام", callback_data="nav_browse")])
     return InlineKeyboardMarkup(keyboard)
 
+def register_user(user):
+    global ADMIN_CHAT_ID
+    if user:
+        ALL_USERS.add(user.id)
+        if user.username and user.username.lower() == ADMIN_USERNAME.lower():
+            ADMIN_CHAT_ID = user.id
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_name = update.effective_user.first_name if update.effective_user else "صديقنا"
+    user = update.effective_user
+    register_user(user)
+
     welcome_text = (
-        f"أهلاً {user_name} 👋\n\n"
+        f"أهلاً {user.first_name if user else 'صديقنا'} 👋\n\n"
         "كل خدماتك بمكان واحد.\n"
         "الأسعار تتحدّث مباشرة وقت اختيار المنتج.\n\n"
         "اختر من القائمة 👇"
@@ -204,10 +216,50 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif update.callback_query:
         await update.callback_query.message.edit_text(welcome_text, reply_markup=main_menu_keyboard())
 
+# أوامر الأدمن
+async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    register_user(user)
+    if user.username and user.username.lower() == ADMIN_USERNAME.lower():
+        admin_text = (
+            "👑 **أهلاً بك في لوحة تحكم الإدارة (T_B STORE)**\n\n"
+            f"👥 عدد المستخدمين الإجمالي: {len(ALL_USERS)}\n"
+            f"🆔 معرف الأدمن: `{user.id}`\n\n"
+            "📢 **للإذاعة لكل المستخدمين:**\n"
+            "اكتب الأمر مع الرسالة مباشرة:\n"
+            "`/broadcast مرحباً بكم، يتوفر عرض جديد...`"
+        )
+        await update.message.reply_text(admin_text, parse_mode="Markdown")
+    else:
+        await update.message.reply_text("عذراً، هذا الأمر مخصص لإدارة المتجر فقط.")
+
+async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    register_user(user)
+    if not (user.username and user.username.lower() == ADMIN_USERNAME.lower()):
+        return
+
+    msg_to_send = " ".join(context.args)
+    if not msg_to_send:
+        await update.message.reply_text("❌ يرجى كتابة نص الرسالة بعد الأمر.\nمثال:\n`/broadcast عروض جديدة متوفرة الآن!`", parse_mode="Markdown")
+        return
+
+    success = 0
+    for uid in ALL_USERS:
+        try:
+            await context.bot.send_message(chat_id=uid, text=f"📢 **تنبيه من إدارة المتجر:**\n\n{msg_to_send}", parse_mode="Markdown")
+            success += 1
+            await asyncio.sleep(0.05)
+        except Exception:
+            pass
+
+    await update.message.reply_text(f"✅ تم إرسال الإذاعة بنجاح إلى {success} مستخدم.")
+
 async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     data = query.data
+    register_user(update.effective_user)
 
     if data == "nav_home":
         await start(update, context)
@@ -219,17 +271,11 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     elif data == "cat_games":
-        await query.message.edit_text(
-            "📁 الالعاب\n\nاختر الخدمة:",
-            reply_markup=games_menu_keyboard()
-        )
+        await query.message.edit_text("📁 الالعاب\n\nاختر الخدمة:", reply_markup=games_menu_keyboard())
 
     elif data.startswith("chat_page_"):
         page_idx = int(data.replace("chat_page_", ""))
-        await query.message.edit_text(
-            "📁 تطبيقات الدردشة\n\nاختر الخدمة:",
-            reply_markup=build_chat_keyboard(page_idx)
-        )
+        await query.message.edit_text("📁 تطبيقات الدردشة\n\nاختر الخدمة:", reply_markup=build_chat_keyboard(page_idx))
 
     elif data.startswith("game_"):
         game_key = data.replace("game_", "")
@@ -238,8 +284,7 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if game_info:
             await query.message.edit_text(
-                f"اخترت: {game_info['title']}\n\n"
-                "يرجى إرسال الآيدي (Player ID) الخاص بحسابك في رسالة:",
+                f"اخترت: {game_info['title']}\n\nيرجى إرسال الآيدي (Player ID) الخاص بحسابك في رسالة:",
                 reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 رجوع للألعاب", callback_data="cat_games")]])
             )
         else:
@@ -247,7 +292,7 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "يرجى التواصل مع الدعم لتحديد الباقة والطلب:",
                 reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton("💬 واتساب", url=SUPPORT_WHATSAPP)],
-                    [InlineKeyboardButton("✈️ تيليجرام الدعم (@Nob_404)", url=SUPPORT_TELEGRAM)],
+                    [InlineKeyboardButton(f"✈️ تيليجرام (@{ADMIN_USERNAME})", url=SUPPORT_TELEGRAM)],
                     [InlineKeyboardButton("🔙 رجوع للألعاب", callback_data="cat_games")]
                 ])
             )
@@ -257,7 +302,7 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "⚡ هذه الخدمة متاحة للشحن الفوري عبر الدعم الفني، تواصل معنا لإتمام طلبك:",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("💬 واتساب الدعم", url=SUPPORT_WHATSAPP)],
-                [InlineKeyboardButton("✈️ تيليجرام الدعم (@Nob_404)", url=SUPPORT_TELEGRAM)],
+                [InlineKeyboardButton(f"✈️ تيليجرام الدعم (@{ADMIN_USERNAME})", url=SUPPORT_TELEGRAM)],
                 [InlineKeyboardButton("🔙 رجوع للأقسام", callback_data="nav_browse")]
             ])
         )
@@ -268,6 +313,7 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
         player_id = context.user_data.get("player_id", "غير محدد")
         game_info = GAMES_DATA.get(game_key)
         pkg_name, pkg_price = game_info["packages"][pkg_index]
+        user = update.effective_user
 
         order_summary = (
             "🧾 تفاصيل الطلب:\n"
@@ -280,11 +326,26 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         support_markup = InlineKeyboardMarkup([
             [InlineKeyboardButton("💬 واتساب الدعم", url=SUPPORT_WHATSAPP)],
-            [InlineKeyboardButton("✈️ تيليجرام الدعم (@Nob_404)", url=SUPPORT_TELEGRAM)],
+            [InlineKeyboardButton(f"✈️ تيليجرام الدعم (@{ADMIN_USERNAME})", url=SUPPORT_TELEGRAM)],
             [InlineKeyboardButton("🔙 اختيار باقة أخرى", callback_data=f"game_{game_key}")],
             [InlineKeyboardButton("🏠 الرئيسية", callback_data="nav_home")]
         ])
         await query.message.edit_text(order_summary, reply_markup=support_markup)
+
+        # إشعار مباشر للأدمن بالطلب
+        if ADMIN_CHAT_ID:
+            try:
+                alert_text = (
+                    "🔔 **طلب شحن جديد!**\n\n"
+                    f"👤 الزبون: {user.first_name} (@{user.username if user.username else 'لا يوجد'})\n"
+                    f"🆔 آيدي الزبون: `{user.id}`\n"
+                    f"🎮 اللعبة: {game_info['title']}\n"
+                    f"📦 الباقة: {pkg_name} ({pkg_price})\n"
+                    f"🎯 آيدي اللاعب: `{player_id}`"
+                )
+                await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=alert_text, parse_mode="Markdown")
+            except Exception:
+                pass
 
     elif data == "nav_deposit":
         deposit_text = (
@@ -297,7 +358,7 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         markup = InlineKeyboardMarkup([
             [InlineKeyboardButton("💬 واتساب", url=SUPPORT_WHATSAPP)],
-            [InlineKeyboardButton("✈️ تيليجرام (@Nob_404)", url=SUPPORT_TELEGRAM)],
+            [InlineKeyboardButton(f"✈️ تيليجرام (@{ADMIN_USERNAME})", url=SUPPORT_TELEGRAM)],
             [InlineKeyboardButton("🏠 الرئيسية", callback_data="nav_home")]
         ])
         await query.message.edit_text(deposit_text, reply_markup=markup)
@@ -334,12 +395,13 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
         support_text = "💬 فريق دعم T_B STORE بخدمتكم لأي استفسار أو مساعدة:"
         markup = InlineKeyboardMarkup([
             [InlineKeyboardButton("💬 واتساب", url=SUPPORT_WHATSAPP)],
-            [InlineKeyboardButton("✈️ تيليجرام (@Nob_404)", url=SUPPORT_TELEGRAM)],
+            [InlineKeyboardButton(f"✈️ تيليجرام (@{ADMIN_USERNAME})", url=SUPPORT_TELEGRAM)],
             [InlineKeyboardButton("🏠 الرئيسية", callback_data="nav_home")]
         ])
         await query.message.edit_text(support_text, reply_markup=markup)
 
 async def handle_user_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    register_user(update.effective_user)
     game_key = context.user_data.get("selected_game")
 
     if game_key and game_key in GAMES_DATA:
@@ -378,6 +440,8 @@ async def main():
     tg_app = ApplicationBuilder().token(TOKEN).build()
 
     tg_app.add_handler(CommandHandler("start", start))
+    tg_app.add_handler(CommandHandler("admin", admin_panel))
+    tg_app.add_handler(CommandHandler("broadcast", broadcast))
     tg_app.add_handler(CallbackQueryHandler(handle_buttons))
     tg_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_user_text))
 
@@ -386,7 +450,7 @@ async def main():
     async with tg_app:
         await tg_app.start()
         await tg_app.updater.start_polling()
-        print("🤖 بوت T_B STORE يعمل الآن بنجاح...")
+        print("🤖 بوت T_B STORE يعمل الآن بنجاح مع لوحة الإدارة...")
         while True:
             await asyncio.sleep(3600)
 
